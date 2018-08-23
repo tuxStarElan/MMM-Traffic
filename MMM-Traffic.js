@@ -37,6 +37,7 @@ Module.register('MMM-Traffic', {
         showAddress: false,
         showAddressText: 'From {origin}<br>To {destination}'
     },
+	myUpdateInterval: null,
 
     start: function() {
         Log.info('Starting module: ' + this.name);
@@ -53,24 +54,46 @@ Module.register('MMM-Traffic', {
         };
         this.commute = '';
         this.summary = '';
-        this.updateCommute(this);
+        this.scheduleUpdate();
     },
+	
+	suspend : function() {
+		Log.info("Suspending module: " + this.name);
+		this.cancelUpdate();
+	},
+	
+	resume : function() {
+		Log.info("Resuming module: " + this.name);
+		this.updateCommute();
+        this.scheduleUpdate();
+	},
+	
+	scheduleUpdate: function() {
+		var interval = this.config.interval;
+		var self = this;
+		this.myUpdateInterval = setInterval(function() {
+			self.updateCommute();
+		}, interval);
+	},
+	
+	cancelUpdate: function() {
+		clearInterval(this.myUpdateInterval);
+	},
 
-    updateCommute: function(self) {
+    updateCommute: function() {
         timeConfig = {
-          showWeekend:    self.config.showWeekend,
-          allTime:        self.config.allTime,
-          startHr:        self.config.startHr,
-          endHr:          self.config.endHr
+          showWeekend:    this.config.showWeekend,
+          allTime:        this.config.allTime,
+          startHr:        this.config.startHr,
+          endHr:          this.config.endHr
         };
-	self.url = encodeURI('https://maps.googleapis.com/maps/api/directions/json' + self.getParams());
+		this.url = encodeURI('https://maps.googleapis.com/maps/api/directions/json' + this.getParams());
 
-        if (self.config.arrival_time.length == 4) {
-          self.sendSocketNotification('LEAVE_BY', {'url':self.url, 'arrival':self.getTodaysArrivalTime(), 'timeConfig':timeConfig});
+        if (this.config.arrival_time.length == 4) {
+          this.sendSocketNotification('LEAVE_BY', {'url':this.url, 'arrival':this.getTodaysArrivalTime(), 'timeConfig':timeConfig});
         } else {
-          self.sendSocketNotification('TRAFFIC_URL', {'url':self.url, 'timeConfig':timeConfig});
+          this.sendSocketNotification('TRAFFIC_URL', {'url':this.url, 'timeConfig':timeConfig});
         }
-        setTimeout(self.updateCommute, self.config.interval, self);
     },
 
     getStyles: function() {
